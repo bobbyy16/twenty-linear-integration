@@ -1,32 +1,23 @@
-// routes/webhookRoutes.js
-const express = require("express");
+import express from "express";
+import {
+  validateTwentyWebhook,
+  validateLinearWebhook,
+} from "../middleware/webhookValidator.js";
+import { twentyWebhookController } from "../controllers/twentyController.js";
+import { linearWebhookController } from "../controllers/linearController.js";
+
 const router = express.Router();
-const twentyController = require("../controllers/twentyController");
-const linearController = require("../controllers/linearController");
 
-/**
- * Webhook Routes
- *
- * POST /webhook/twenty - Receives webhooks from Twenty CRM
- * POST /webhook/linear - Receives webhooks from Linear
- */
+router.post(
+  "/twenty",
+  validateTwentyWebhook,
+  twentyWebhookController.handleWebhook
+);
 
-// Twenty CRM webhook endpoint
-router.post("/twenty", twentyController.handleWebhook);
+router.post(
+  "/linear",
+  validateLinearWebhook,
+  linearWebhookController.handleWebhook
+);
 
-// Linear webhook endpoint
-router.post("/linear", linearController.handleWebhook);
-
-// Health check endpoint for webhooks
-router.get("/health", (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    message: "Webhook service is running",
-    endpoints: {
-      twenty: "/webhook/twenty",
-      linear: "/webhook/linear",
-    },
-  });
-});
-
-module.exports = router;
+export default router;

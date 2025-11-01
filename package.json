@@ -1,4 +1,25 @@
 {
+  "name": "twentycrm-linear",
+  "version": "1.0.0",
+  "description": "A robust Node.js service that provides bidirectional synchronization between Twenty CRM and Linear project management.",
+  "main": "server.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bobbyy16/twentyCRM-linear.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/bobbyy16/twentyCRM-linear/issues"
+  },
+  "homepage": "https://github.com/bobbyy16/twentyCRM-linear#readme",
   "dependencies": {
     "axios": "^1.13.1",
     "body-parser": "^2.2.0",
