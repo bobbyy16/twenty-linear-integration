@@ -122,35 +122,6 @@ Ensure the custom fields in Twenty match the internal API names and types:
 - `deliverystatus` – Select field with values: INITIATED, IN_PROGRESS, DELIVERED, CANCELLED
 - `syncstatus` – Select field with values: SYNCED, PENDING, ERROR
 
-### 400 Bad Request from Twenty API
-
-Likely invalid field name or value. Validate:
-
-- Are the field keys correct (lowercase/custom names)?
-- Does the value match the enum or field type in Twenty (e.g., select list vs. text)?
-
-### Progress shows "1000%" or similar
-
-Check that your `projectprogress` mapping sends out decimal 0–1 if the field type in Twenty is a percentage.
-
-### Linear states not working
-
-Ensure `status.name` from Linear is correctly parsed (case insensitive) and mapped in your config.
-
-### No project created on Closed Won
-
-Verify:
-
-- The stage value matches `stageValues.CLOSED_WON` in `fieldMappings`
-- The `linearprojectid` field was empty
-
-### Webhook signature fails
-
-Ensure:
-
-- You capture `req.rawBody` (via `bodyParser.json({ verify: … })`)
-- Use the correct header keys for signature/timestamp from Twenty docs
-
 ## 🎯 Contribution
 
 1. Fork the repository
