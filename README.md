@@ -1,319 +1,182 @@
-# Twenty ↔️ Linear Two-Way Sync
+# Twenty ↔ Linear Integration
 
-A robust Node.js service that provides bidirectional synchronization between Twenty CRM and Linear project management.
+A bidirectional webhook integration that syncs opportunities from Twenty CRM with projects in Linear, keeping your sales pipeline and project management in perfect harmony.
 
 ## 🚀 Features
 
-### Twenty → Linear
+- **Automatic Project Creation**: When an opportunity reaches `CLOSED_WON` in Twenty, a corresponding project is automatically created in Linear
+- **Bidirectional Sync**: Changes in Linear projects sync back to Twenty opportunities
+- **Status Mapping**: Intelligent mapping between Linear project states and Twenty delivery statuses
+- **Progress Tracking**: Automatic calculation of project progress based on Linear issue completion
+- **Secure Webhooks**: Cryptographic signature verification for both Twenty and Linear webhooks
 
-- ✨ **Auto-create Projects**: Automatically creates Linear projects when opportunities reach CLOSED_WON stage
-- 👤 **Assignee Sync**: Maps Twenty point of contact to Linear project lead
-- 📅 **Date Sync**: Syncs close date to Linear target date
-- 💬 **Note Sync**: Creates Linear comments from Twenty notes
-- 📎 **Attachment Sync**: Syncs attachments from Twenty to Linear
-- 🔄 **Update Sync**: Syncs name and metadata changes to existing projects
+## 📋 Prerequisites
 
-### Linear → Twenty
+- Node.js (v14 or higher)
+- npm or yarn
+- A Twenty workspace with API access
+- A Linear workspace with API access
+- A publicly accessible server (or tunneling solution for development)
 
-- 📊 **Progress Tracking**: Syncs Linear project progress percentage to Twenty
-- 🎯 **Status Updates**: Maps Linear project states to Twenty delivery statuses
-- 👥 **Lead Sync**: Updates Twenty point of contact when Linear lead changes
-- 📅 **Target Date Sync**: Syncs Linear target date to Twenty close date
-- 💬 **Comment Sync**: Creates Twenty notes from Linear comments
-- 📎 **Attachment Sync**: Syncs Linear attachments to Twenty
-- 🎯 **Milestone Tracking**: Updates progress when milestones complete
+## 🔧 Installation
 
-## 📋 State Mapping
-
-| Linear State | Twenty Status |
-| ------------ | ------------- |
-| planned      | INITIATED     |
-| started      | IN_PROGRESS   |
-| paused       | ON_HOLD       |
-| completed    | DELIVERED     |
-| canceled     | CANCELLED     |
-
-## 🛠️ Installation
-
-1. **Clone the repository**
+### 1. Clone the repository
 
 ```bash
-git clone <your-repo-url>
-cd twenty-linear-sync
+git clone https://github.com/bobbyy16/twenty-linear-integration.git
+cd twenty-linear-integration
 ```
 
-2. **Install dependencies**
+### 2. Install dependencies
 
 ```bash
 npm install
 ```
 
-3. **Configure environment variables**
+### 3. Configure environment
 
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with your credentials:
+Create a `.env` file in the root directory with the following variables:
 
 ```env
-# Server
-PORT=3000
+TWENTY_API_KEY=your_20_api_key
+TWENTY_BASE_URL=https://your-workspace.twenty.com
+TWENTY_WEBHOOK_SECRET=your_twenty_webhook_secret
 
-# Linear
-LINEAR_API_KEY=lin_api_xxxxxxxx
-LINEAR_TEAM_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-LINEAR_WEBHOOK_SECRET=your_secret_here
+LINEAR_API_KEY=your_linear_api_key
+LINEAR_TEAM_ID=your_linear_team_id
+LINEAR_WEBHOOK_SECRET=your_linear_webhook_secret
 
-# Twenty
-TWENTY_API_KEY=your_api_key_here
-TWENTY_API_URL=https://api.twenty.com
-TWENTY_WEBHOOK_SECRET=your_secret_here
+PORT=8080
 ```
 
-4. **Start the server**
+Then validate your configuration:
 
 ```bash
-# Production
+npm run validate-config
+```
+
+(Or simply start the server – it will error if variables are missing.)
+
+### 4. Setup Webhook Endpoints
+
+**In Twenty:**
+
+- Configure your webhook URL to `https://<your-domain>/webhooks/twenty`
+- Supply your `TWENTY_WEBHOOK_SECRET`
+
+**In Linear:**
+
+- Configure your webhook URL to `https://<your-domain>/webhooks/linear`
+- Supply your `LINEAR_WEBHOOK_SECRET` (if applicable)
+
+Ensure your server is reachable (public URL or via tunneling for dev).
+
+### 5. Run the server
+
+```bash
 npm start
-
-# Development (with auto-reload)
-npm run dev
 ```
 
-## 🔧 Setup
+The server listens on the value of `PORT` (default 8080).
 
-### Getting Linear Credentials
+## 🌐 API Endpoints
 
-1. **API Key**: Go to Linear Settings → API → Personal API Keys
-2. **Team ID**:
-   - Visit `http://localhost:3000/test-connections` after starting the server
-   - Or use Linear GraphQL Explorer to query teams
-3. **Webhook Secret**: Create a webhook in Linear Settings → Webhooks
+- **`/health`** – Simple health check
+- **`/webhooks/twenty`** – Handle Twenty webhooks
+- **`/webhooks/linear`** – Handle Linear webhooks
 
-### Getting Twenty Credentials
+## 🔄 Flow Overview
 
-1. **API Key**: Go to Twenty Settings → API → Generate API Key
-2. **API URL**: Your Twenty instance URL (e.g., `https://your-company.twenty.com`)
-3. **Webhook Secret**: Create a webhook in Twenty Settings → Webhooks
+### Twenty → Linear
 
-### Configuring Webhooks
+1. Opportunity in Twenty moves to stage `CLOSED_WON`
+2. This triggers the webhook
+3. The middleware `validateTwentyWebhook` confirms the signature
+4. `twentyService.handleOpportunityUpdate()` creates a new project in Linear (via `linearApi.createProject`)
+5. It then updates the Twenty opportunity with:
+   - `linearprojectid`
+   - `projectProgress=0`
+   - `deliverystatus=INITIATED`
+   - `syncstatus=SYNCED`
 
-#### Linear Webhook Setup
+### Linear → Twenty
 
-1. Go to Linear Settings → Webhooks
-2. Create new webhook with URL: `https://your-domain.com/webhook/linear`
-3. Select events:
-   - Project → Updated
-   - Issue → Updated
-   - Comment → Created
-   - Attachment → Created
-   - ProjectMilestone → Updated
-4. Copy the webhook secret to `.env`
+1. A project in Linear updates (e.g., status changes or issue progress)
+2. The webhook on `/webhooks/linear` triggers `linearService.handleProjectUpdate()` or `handleIssueUpdate()`
+3. The sync service finds the linked Twenty opportunity (`extractTwentyIdFromLinear()`, which reads the Linear project description for `[TwentyOpportunityId: …]`)
+4. It builds a payload mapping Linear status → Twenty fields (`deliverystatus`, `projectprogress`, `closeDate`, etc.)
+5. It calls `twentyApi.updateOpportunity()` to update the record in Twenty
 
-#### Twenty Webhook Setup
+## 🛠️ Configuration & Mappings
 
-1. Go to Twenty Settings → Webhooks
-2. Create new webhook with URL: `https://your-domain.com/webhook/twenty`
-3. Select events:
-   - opportunity.updated
-   - note.created
-   - attachment.created
-4. Copy the webhook secret to `.env`
+`config/fieldMappings.js` holds all field-name mappings and enums (Twenty field names, delivery status values, sync status values).
 
-## 📁 Project Structure
+### Default Linear Status Mappings
 
-```
-twenty-linear-sync/
-├── controllers/
-│   ├── twentyController.js    # Handles Twenty webhooks
-│   └── linearController.js    # Handles Linear webhooks
-├── models/
-│   ├── twentyModel.js         # Twenty API client
-│   └── linearModel.js         # Linear API client
-├── routes/
-│   └── webhookRoutes.js       # Webhook route definitions
-├── index.js                   # Main server file
-├── .env.example               # Environment variables template
-├── package.json               # Dependencies
-└── README.md                  # This file
-```
+| Linear State                    | Progress | Delivery Status |
+| ------------------------------- | -------- | --------------- |
+| backlog                         | 0%       | INITIATED       |
+| planned                         | 10%      | INITIATED       |
+| in progress / started           | 40%      | IN_PROGRESS     |
+| completed / done / finished     | 100%     | DELIVERED       |
+| canceled / cancelled / archived | 0%       | CANCELLED       |
 
-## 🧪 Testing
+### Custom Fields in Twenty
 
-### Test API Connections
+Ensure the custom fields in Twenty match the internal API names and types:
 
-```bash
-# Start the server
-npm start
+- `linearprojectid` – Text field for Linear project ID
+- `projectprogress` – Number/decimal field for progress (0-1 or 0-100)
+- `deliverystatus` – Select field with values: INITIATED, IN_PROGRESS, DELIVERED, CANCELLED
+- `syncstatus` – Select field with values: SYNCED, PENDING, ERROR
 
-# Visit in browser or curl
-curl http://localhost:3000/test-connections
-```
+## ✅ Troubleshooting
 
-This will verify:
+### 400 Bad Request from Twenty API
 
-- ✅ Linear API connection
-- ✅ Linear team access
-- ✅ Twenty API connection
+Likely invalid field name or value. Validate:
 
-### Health Check
+- Are the field keys correct (lowercase/custom names)?
+- Does the value match the enum or field type in Twenty (e.g., select list vs. text)?
 
-```bash
-curl http://localhost:3000/webhook/health
-```
+### Progress shows "1000%" or similar
 
-## 🔄 Sync Workflow
+Check that your `projectprogress` mapping sends out decimal 0–1 if the field type in Twenty is a percentage.
 
-### Creating a Project (Twenty → Linear)
+### Linear states not working
 
-1. User moves opportunity to **CLOSED_WON** stage in Twenty
-2. Webhook triggers to `/webhook/twenty`
-3. System validates webhook signature
-4. Creates Linear project with:
-   - Name from opportunity name
-   - Description with embedded Twenty opportunity ID
-   - Lead from point of contact email
-   - Target date from close date
-5. Updates Twenty opportunity with:
-   - Linear project ID
-   - Initial progress (0%)
-   - Status set to INITIATED
+Ensure `status.name` from Linear is correctly parsed (case insensitive) and mapped in your config.
 
-### Updating Progress (Linear → Twenty)
+### No project created on Closed Won
 
-1. User completes issues/milestones in Linear
-2. Webhook triggers to `/webhook/linear`
-3. System validates webhook signature
-4. Extracts Twenty opportunity ID from project description
-5. Updates Twenty opportunity with:
-   - Current progress percentage
-   - Mapped delivery status
+Verify:
 
-### Syncing Comments
+- The stage value matches `stageValues.CLOSED_WON` in `fieldMappings`
+- The `linearprojectid` field was empty
 
-**Twenty → Linear:**
+### Webhook signature fails
 
-1. User creates note on opportunity
-2. System finds linked Linear project
-3. Creates comment on Linear project
+Ensure:
 
-**Linear → Twenty:**
+- You capture `req.rawBody` (via `bodyParser.json({ verify: … })`)
+- Use the correct header keys for signature/timestamp from Twenty docs
 
-1. User creates comment on project
-2. System finds linked Twenty opportunity
-3. Creates note on Twenty opportunity
-
-## 🔒 Security
-
-- ✅ **Webhook signature validation** for both Twenty and Linear
-- ✅ **Environment variable protection** for sensitive credentials
-- ✅ **HTTPS required** for production deployments
-- ✅ **Rate limiting ready** (implement as needed)
-
-## 🐛 Debugging
-
-### Enable Verbose Logging
-
-The application uses emoji-prefixed console logs:
-
-- 📥 Incoming webhooks
-- ✅ Successful operations
-- ❌ Errors
-- ⚠️ Warnings
-- 🔄 Sync operations
-- 💬 Comments
-- 📎 Attachments
-
-### Common Issues
-
-**Issue: "Invalid signature"**
-
-- Verify webhook secrets match in both platforms
-- Check that webhook payload isn't being modified in transit
-
-**Issue: "No linked project/opportunity"**
-
-- Ensure opportunities reach CLOSED_WON before Linear project creation
-- Check that project descriptions contain `[TwentyOpportunityId: ...]` tag
-
-**Issue: "User not found by email"**
-
-- Verify email addresses match exactly between platforms
-- Check that users exist in both systems
-
-## 🚀 Deployment
-
-### Using Node.js
-
-```bash
-# Production mode with PM2
-npm install -g pm2
-pm2 start index.js --name twenty-linear-sync
-pm2 save
-pm2 startup
-```
-
-### Using Docker
-
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-EXPOSE 3000
-CMD ["node", "index.js"]
-```
-
-```bash
-docker build -t twenty-linear-sync .
-docker run -p 3000:3000 --env-file .env twenty-linear-sync
-```
-
-### Environment Requirements
-
-- Node.js 16+ required
-- Stable internet connection for webhook delivery
-- HTTPS endpoint for production webhooks
-
-## 📊 Monitoring
-
-Monitor these metrics:
-
-- Webhook delivery success rate
-- Sync operation completion time
-- API error rates
-- Webhook signature validation failures
-
-## 🤝 Contributing
-
-Contributions welcome! Please:
+## 🎯 Contribution
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+2. Create your feature branch (`git checkout -b feature/my-feature`)
+3. Commit your changes (`git commit -m 'Add some feature'`)
+4. Push to the branch (`git push origin feature/my-feature`)
+5. Submit a Pull Request
+
+Feel free to open issues for bugs or enhancements.
 
 ## 📄 License
 
-MIT License - feel free to use this in your own projects!
+This project is licensed under the MIT License.
 
-## 🆘 Support
+## 🤝 Acknowledgements
 
-For issues and questions:
+Thanks to the teams behind the Twenty API and Linear API for enabling these integrations.
 
-1. Check the debugging section above
-2. Review webhook logs in both platforms
-3. Test API connections using `/test-connections`
-4. Check that all environment variables are set correctly
-
-## 🎯 Roadmap
-
-- [ ] Add retry logic for failed syncs
-- [ ] Implement sync queue for high-volume scenarios
-- [ ] Add dashboard for monitoring sync status
-- [ ] Support for custom field mapping
-- [ ] Bulk sync for existing opportunities
-- [ ] Conflict resolution strategies
+Inspired by the need to keep CRM data and project tracking in sync with minimal manual effort.
