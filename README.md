@@ -49,14 +49,6 @@ LINEAR_WEBHOOK_SECRET=your_linear_webhook_secret
 PORT=8080
 ```
 
-Then validate your configuration:
-
-```bash
-npm run validate-config
-```
-
-(Or simply start the server – it will error if variables are missing.)
-
 ### 4. Setup Webhook Endpoints
 
 **In Twenty:**
@@ -129,8 +121,6 @@ Ensure the custom fields in Twenty match the internal API names and types:
 - `projectprogress` – Number/decimal field for progress (0-1 or 0-100)
 - `deliverystatus` – Select field with values: INITIATED, IN_PROGRESS, DELIVERED, CANCELLED
 - `syncstatus` – Select field with values: SYNCED, PENDING, ERROR
-
-## ✅ Troubleshooting
 
 ### 400 Bad Request from Twenty API
 
